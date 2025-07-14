@@ -1,8 +1,7 @@
+# === client_improved.py ===
 import socket
-import time
 
 
-# יצירת חיבור לשרת
 def create_client():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect(("127.0.0.1", 8080))
@@ -10,59 +9,49 @@ def create_client():
     return client_socket
 
 
-# שליחת קובץ לשרת
 def upload_file(client_socket, file_path):
-    try:
-        with open(file_path, "rb") as file:
-            while True:
-                data = file.read(1024)
-                if not data:
-                    break
-                print(f"Sending {len(data)} bytes...")
-                client_socket.send(data)
-        # שליחת סימן סיום
-        time.sleep(0.1)
-        client_socket.send(b"DONE")
-        print("Finish sending file.")
-    except:
-        print("File not found!")
+    client_socket.send("UPLOAD".encode())
+
+    with open(file_path, "rb") as file:
+        while True:
+            data = file.read(1024)
+            if not data:
+                # שליחת סימן סיום
+                client_socket.send("END".encode())
+                print("Finish sending file.")
+                break
+            client_socket.send(data)
 
 
-# קבלת קובץ מהשרת
-def get_file(client_socket, save_path):
-    response = client_socket.recv(1024)
-    if response == b"OK":
-        with open(save_path, "wb") as file:
-            while True:
-                data = client_socket.recv(1024)
-                if data == b"DONE":
-                    print("Finish receiving file.")
-                    break
-                if not data:
-                    break
-                print(f"Received {len(data)} bytes...")
-                file.write(data)
-    else:
-        print("File not found on server.")
+def download_file(client_socket, save_path):
+    client_socket.send("DOWNLOAD".encode())
+
+    with open(save_path, "wb") as file:
+        while True:
+            data = client_socket.recv(1024)
+            if data == b"END":
+                print("File download completed.")
+                break
+            file.write(data)
 
 
-# תפריט פשוט
-print("1. Upload file")
-print("2. Download file")
-choice = input("Choose: ")
-
+# תוכנית ראשית
 client_socket = create_client()
 
-if choice == "1":
-    filename = input("Enter filename to upload: ")
-    client_socket.send(f"UPLOAD {filename}".encode())
-    upload_file(client_socket, filename)
+while True:
+    print("\n1. Upload file")
+    print("2. Download file")
+    print("3. Exit")
+    choice = input("Enter your choice: ")
 
-elif choice == "2":
-    filename = input("Enter filename to download: ")
-    client_socket.send(f"DOWNLOAD {filename}".encode())
-    get_file(client_socket, f"downloaded_{filename}")
+    if choice == "1":
+        file_path = input("Enter file path to upload: ")
+        upload_file(client_socket, file_path)
+    elif choice == "2":
+        save_path = input("Enter path to save downloaded file: ")
+        download_file(client_socket, save_path)
+    elif choice == "3":
+        client_socket.send("EXIT".encode())
+        break
 
-# חכה קצת לפני סגירה
-time.sleep(0.5)
 client_socket.close()
